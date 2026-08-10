@@ -638,9 +638,8 @@ impl<'a> Set<'a> {
                 let (path, raw) = spec
                     .split_once('=')
                     .with_context(|| format!("invalid spec {spec:?}: expected field=value"))?;
-                // Look up the field's type from cmfwcfg (the FwTable schema
-                // covers a superset of FwTableOverride and uses the same
-                // types for matching fields, so it's a safe type source).
+                // Look up the field's type from cmfwcfg so we parse the raw
+                // value into the right JSON type.
                 let mut typed = get_value(&cmfwcfg, path)
                     .with_context(|| format!("unknown field path: {path}"))?
                     .clone();
@@ -649,8 +648,9 @@ impl<'a> Set<'a> {
                 insert_at_path(&mut new_map, path, typed);
                 paths.push(path);
             }
-            // Round-trip through FwTableOverride: any path not in the
-            // override proto is silently dropped by serde.
+            // Sanity round-trip through FwTableOverride. It mirrors the full
+            // FwTable, so every real field survives; this only catches an
+            // internal proto/schema mismatch, not a deliberate gate.
             let round_tripped = override_round_trip(&new_map);
             for path in &paths {
                 anyhow::ensure!(
@@ -904,9 +904,9 @@ fn remove_in_object(obj: &mut serde_json::Map<String, Value>, path: &str) {
     }
 }
 
-/// Serialize a `HashMap` through `FwTableOverride` and back. Fields not in
-/// the override schema get silently dropped by serde, so this is the
-/// allow-list filter used by `Set::run` to reject unsupported paths.
+/// Serialize a `HashMap` through `FwTableOverride` and back. The override
+/// proto mirrors the full `FwTable`, so this preserves every real field; it
+/// exists only as a sanity check for an internal proto/schema mismatch.
 fn override_round_trip(map: &HashMap<String, Value>) -> HashMap<String, Value> {
     let ovr: FwTableOverride = spirom_tables::from_hash_map(map.clone());
     spirom_tables::to_hash_map(ovr)

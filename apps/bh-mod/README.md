@@ -84,10 +84,11 @@ the active bank tears.
 leaving the active one intact as the rollback target. The new bank then
 becomes active on the next boot.
 
-The set of modifiable fields is defined by `fw_table_override.proto` —
-only fields explicitly exposed there can be set via `bh-mod`. Adding a
-new field requires editing the proto, the firmware's per-field merge
-list, and re-flashing.
+`bh-mod` does not gate which fields you may set: `fw_table_override.proto`
+mirrors the full `FwTable`, so any field in the table can be written to
+the override banks. The firmware decides which overrides it actually
+honours via its per-field merge in `tt_bh_fwtable_apply_ccfgovr`; a field
+the firmware does not merge is written but simply ignored at boot.
 
 ## Examples
 
@@ -111,8 +112,7 @@ bh-mod -d /dev/tenstorrent/0 get -t read-only
 bh-mod set -n chip_limits.asic_fmax=1350
 bh-mod set chip_limits.asic_fmax=1350
 
-# Stack a second override; both apply on next boot (when more fields
-# are exposed in fw_table_override.proto)
+# Stack a second override; both apply on next boot
 bh-mod set chip_limits.tdp_limit=160
 
 # Remove one override (cmfwcfg value re-emerges)
@@ -140,11 +140,6 @@ If every chip agrees, the columns collapse to a single `Value` column.
 
 ## Known limitations
 
-- **Only fields in `fw_table_override.proto` are modifiable.** Setting
-  any other field (including `fw_bundle_version`, anything in
-  `feature_enable`, etc.) is rejected at the CLI level. The override
-  surface area is intentionally narrow and grows only by deliberate
-  edits to the proto.
 - **Override body size is capped at 512 bytes** (firmware decode limit).
   A handful of fields fits comfortably; setting nearly every exposed
   field will eventually hit the cap.
