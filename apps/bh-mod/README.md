@@ -121,6 +121,15 @@ bh-mod set chip_limits.asic_fmax=1350
 # are exposed in fw_table_override.proto)
 bh-mod set chip_limits.tdp_limit=160
 
+# Raise the ceiling for a host-requested TDP limit (TT_SMC_MSG_SET_TDP_LIMIT,
+# e.g. via tt-smi). The firmware clamps it to [chip_limits.tdp_limit, 500],
+# so a value at or below tdp_limit only lets the host lower the limit. This
+# does not change the boot-time tdp_limit itself.
+bh-mod set chip_limits.max_tdp_limit=200
+
+# Go back to the cmfwcfg ceiling
+bh-mod res chip_limits.max_tdp_limit
+
 # Raise the ETH link speed above what cmfwcfg pins it to. bh-mod validates
 # against the speeds the ERISC firmware implements (0, 40, 100, 200, 330,
 # 350, 370, 400), so a typo fails here rather than after a reset. 0 is a
