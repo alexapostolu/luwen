@@ -1084,4 +1084,37 @@ mod tests {
         let map = set_one(path, Value::from(1));
         assert_eq!(get_value(&override_round_trip(&map), path), None);
     }
+
+    /// 0 is a real value: the firmware clamps the ceiling up to `tdp_limit`,
+    /// so it pins the host to lowering the limit. It has to survive even
+    /// though it is the proto3 default for `uint32`.
+    #[test]
+    fn max_tdp_limit_survives_the_override_schema() {
+        let path = "chip_limits.max_tdp_limit";
+        for watts in [0u32, 150, 200, 500] {
+            let map = set_one(path, Value::from(watts));
+            assert_eq!(
+                get_value(&override_round_trip(&map), path),
+                get_value(&map, path),
+                "max_tdp_limit={watts} must survive the override schema",
+            );
+        }
+    }
+
+    /// Only the two TDP fields and the kernel-throttler stop frequency are
+    /// exposed from ChipLimits; its neighbours stay reserved.
+    #[test]
+    fn other_chip_limit_fields_stay_gated() {
+        for path in [
+            "chip_limits.board_power_limit",
+            "chip_limits.additional_board_power",
+        ] {
+            let map = set_one(path, Value::from(300));
+            assert_eq!(
+                get_value(&override_round_trip(&map), path),
+                None,
+                "{path} must stay gated by the override schema",
+            );
+        }
+    }
 }
